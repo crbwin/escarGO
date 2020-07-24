@@ -1,0 +1,352 @@
+---
+title: "Cleaning Template"
+author: "Chayce Baldwin"
+date: "7/24/2020"
+output: 
+    html_document:
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+---
+
+```{r clean system, message=TRUE, warning=TRUE, include=FALSE}
+rm(list = ls()) # clean environment
+
+#options(knitr.table.format = "word_document")
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+```
+
+```{r include = FALSE}
+# install.packages("package_name")
+
+library(devtools)
+library(knitr)
+library(tidyverse)
+library(kableExtra)
+library(magrittr)
+library(Hmisc)
+library(psych)
+library(haven)
+library(dplyr)
+install_github("crbwin/clnR")
+library(clnR2)
+```
+
+# Load and tidy data
+
+```{r loading data}
+gr <- read.csv("../Data/<filename>_ready.csv", header = TRUE)
+
+d <- read.csv("C:\\Users\\cbwin\\Dropbox (Character Lab)\\Grit Rubric Project\\Data\\Grit+Rubric_July+16+2020_13.08_ready_SATACT.csv", header = TRUE)
+```
+
+
+```{r}
+# get rid of outliers of time took, or less than a time that you think it should have taken (e.g. get rid of 5 min or less)
+
+d %<>% dplyr::filter(att_check==20)
+
+d %<>% dplyr::filter(DistributionChannel!="preview")
+
+d %<>% rename(duration = `Duration..in.seconds.`)
+
+
+time.tab <- d %>% select(duration) %>% 
+                      mutate(
+                         duration_min = duration/60,
+                         duration_z = scale(duration)
+                            ) %>% 
+                    dplyr::filter(duration_z > -3.29) %>%  #& duration_z < 3.29) %>% 
+                    psych::describe() # n = 
+
+time.tab
+
+d %>% filter(duration < (median(duration)/2)) %>% select(duration) # n = 6
+
+d %<>% filter(duration > (median(duration)/2))
+
+
+```
+
+```{r}
+d %<>% select(
+  
+  ## Grit rubric
+  gr_pass = gr_pass_1, 
+  gr_pers = gr_pers_1,
+  
+  ## Grit-12
+  grit1:grit12,
+  
+  ## Self-control (BSCS)
+  sc1:sc13,
+  
+  ## Deomgraphics
+  birthyr = birthyr_1,
+  gender,
+  
+  white,
+  amindian,
+  black,
+  asian,
+  hispanic,
+  pacisl,
+  multirace,
+  
+  educ, 
+  income
+  
+)
+```
+
+## Demographics
+
+```{r}
+# if race vars in data are separate columns
+cwb %<>% 
+  mutate(
+    race = case_when(
+ white == 1 ~ "White",
+ amindian == 1 ~ "Native Am.",
+ black == 1 ~ "Black",
+ asian == 1 ~ "Asian",
+ hispanic == 1 ~ "Latinx",
+ pacisl == 1 ~ "Pac. Islander",
+ multirace == 1 ~ "Multirace",
+ TRUE ~ NA_character_
+    )
+  )
+
+cwb %<>% mutate(
+  race_f <- factor(race, levels=unique(race)),
+  female_f <- factor(gender, levels = c(0, 1), labels = c("Male", "Female"))
+)
+
+
+##if age is input as birth year
+
+#educ coding
+
+#income coding
+
+
+
+
+
+
+```
+
+checking distributions of demographics
+```{r}
+
+```
+
+
+Copy in the notes that Juan had above composite creation
+do the code for the demographics, add some common ones
+
+# Creating composites
+
+## Grit
+
+### Overall
+
+*Note*:
+
+#### Recoding and grouping quosures
+```{r}
+d %<>% mutate(
+  grit2_r = 6 - grit2,
+  grit3_r = 6 - grit3,
+  grit5_r = 6 - grit5,
+  grit7_r = 6 - grit7,
+  grit8_r = 6 - grit8,
+  grit11_r = 6 - grit11
+)
+
+q_grit <- quos(grit1, grit2_r, grit3_r, grit4, grit5_r, grit6, grit7_r, grit8_r, grit9, grit10, grit11_r, grit12)
+```
+
+#### Summarizing
+```{r}
+d %>% table.describe(q_grit)
+d %>% table.freq(q_grit)
+```
+
+#### Reliability
+```{r}
+d %>% alphatize(q_grit, neg.corr = FALSE) ## a = .91
+
+table.corr(gr, q_grit)
+```
+
+#### Factor Analysis
+```{r}
+d %>% factorize(q_grit, factors = 2)
+```
+
+#### Compute Composite
+```{r}
+d %<>% cv_bake(grit, q_grit)
+```
+
+#### Describe
+```{r}
+  hist(d$grit)
+  boxplot(d$grit)
+```
+
+### Passion
+
+*Note*:
+
+#### Recoding and grouping quosures
+```{r}
+q_grit_pass <- quos(grit2_r, grit3_r, grit5_r, grit7_r, grit8_r, grit11_r)
+
+```
+
+#### Summarizing
+```{r}
+d %>% table.describe(q_grit_pass)
+d %>% table.freq(q_grit_pass)
+```
+
+#### Reliability
+```{r}
+d %>% alphatize(q_grit_pass, neg.corr = FALSE) ## a = .91
+
+table.corr(gr, q_grit_pass)
+```
+
+#### Factor Analysis
+```{r}
+d %>% factorize(q_grit_pass, factors = 1)
+```
+
+#### Compute Composite
+```{r}
+d %<>% cv_bake(grit_pass, q_grit_pass)
+```
+
+#### Describe
+```{r}
+  hist(d$grit_pass)
+  boxplot(d$grit_pass)
+```
+
+### Perseverance
+
+*Note*:
+
+#### Recoding and grouping quosures
+```{r}
+q_grit_pers <- quos(grit1, grit4, grit6, grit9, grit10, grit12)
+```
+
+#### Summarizing
+```{r}
+d %>% table.describe(q_grit_pers)
+d %>% table.freq(q_grit_pers)
+```
+
+#### Reliability
+```{r}
+d %>% alphatize(q_grit_pers, neg.corr = FALSE) ## a = .82
+
+table.corr(gr, q_grit_pers)
+```
+
+#### Factor Analysis
+```{r}
+d %>% factorize(q_grit_pers, factors = 1)
+```
+
+#### Compute Composite
+```{r}
+d %<>% cv_bake(grit_pers, q_grit_pers)
+```
+
+#### Describe
+```{r}
+  hist(d$grit_pers)
+  boxplot(d$grit_pers)
+```
+
+## self-control
+
+*Note*:
+
+### Recoding and grouping quosures
+```{r}
+
+d %<>% 
+  mutate(
+    sc2_r = 6 - sc2,
+    sc3_r = 6 - sc3,
+    sc4_r = 6 - sc4,
+    sc5_r = 6 - sc5,
+    sc7_r = 6 - sc7,
+    sc9_r = 6 - sc9,
+    sc10_r = 6 - sc10,
+    sc12_r = 6 - sc12,
+    sc13_r = 6 - sc13
+)
+
+q_sc <- quos(sc1, sc2_r, sc3_r, sc4_r, sc5_r, sc6, sc7_r, sc8, sc9_r, sc10_r, sc11, sc12_r, sc13_r)
+
+```
+
+#### Summarizing
+```{r}
+d %>% table.describe(q_sc)
+d %>% table.freq(q_sc)
+```
+
+### Reliability
+```{r}
+d %>% alphatize(q_sc, neg.corr = FALSE) ## a = 0.89
+d %>% table.corr(q_sc)
+```
+
+### Factor Analysis
+```{r}
+d %>% factorize(q_sc, factors = 1)
+```
+
+### Compute Composite
+```{r}
+d %<>% cv_bake(sc, q_sc)
+```
+
+### Describe
+```{r}
+  hist(d$sc)
+  boxplot(d$sc)
+```
+
+# Descriptives and correlations
+
+```{r}
+q_all <- quos(grit, grit_pass, grit_pers,
+              sc,
+              age, female_f, race_f,
+              educ, income)
+```
+
+
+```{r}
+d %>% table.describe(q_all, alpha = TRUE)
+d %>% table.corr(q_all)
+```
+
+
+# Write new data
+
+```{r}
+write_rds("../Data/cleaned_<projectname>.rds")
+```
+---
+
+
